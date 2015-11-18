@@ -88,34 +88,42 @@ function drush_local_env() {
     drush_log(dt('Creating sites/default/private subdirectory.'), 'success');
   }
 
-  // Get operating system version.
-  $os = drush_shell_exec('uname -s');
-  if ($os == 1) {
-    $os = current(drush_shell_exec_output());
+  // Get apache user.
+  $user = drush_shell_exec('ps axho user,group,comm|grep -E "httpd|apache"|uniq|grep -v "root"|awk \'END {if ($1 && $2) print $1}\'');
+  $user = current(drush_shell_exec_output());
+  drush_log(dt('Apache user: ' . $user), 'status');
 
-    switch ($os) {
-      case 'Linux':
-        drush_log(dt('Your operating system is Linux.'), 'status');
-        drush_log(dt('Setting files permissions to _www user and _www group.'), 'status');
-        drush_log(dt('If this didn\'t work, try executing this command using sudo,'), 'status');
-        drush_log(dt('or check what user and group your local Apache is running.'), 'status');
-        drush_shell_exec('nohup chown -Rv www-data:www-data ' . $files . '  > /dev/null && nohup sudo chown -Rv www-data:www-data ' . $private . ' > /dev/null');
-        drush_shell_exec('nohup chgrp -Rv www-data ' . $files . '  > /dev/null && nohup sudo chgrp -Rv www-data ' . $private . ' > /dev/null');
-        break;
+  // Get first group of apache user.
+  $groups = drush_shell_exec('id -Gn ' . $user);
+  $groups = current(drush_shell_exec_output());
+  $groups = explode(' ', $groups);
+  $group = current($groups);
+  drush_log(dt('Apache group: ' . $group), 'status');
 
-      // OSX as a default.
-      case 'Darwin':
-      default:
-        drush_log(dt('Your operating system is OSX.'), 'status');
-        drush_log(dt('Setting files permissions to _www user and _www group.'), 'status');
-        drush_log(dt('If this didn\'t work, try executing this command using sudo,'), 'status');
-        drush_log(dt('or check what user and group your local Apache is running.'), 'status');
-        drush_shell_exec('nohup chown -Rv _www:_www ' . $files . '  > /dev/null && nohup sudo chown -Rv _www:_www ' . $private . ' > /dev/null');
-        drush_shell_exec('nohup chgrp -Rv _www ' . $files . '  > /dev/null && nohup sudo chgrp -Rv _www ' . $private . ' > /dev/null');
-        break;
-    }
-    // Global permissions for all systems.
-    drush_shell_exec('nohup chmod -R 2775 ' . $files . '  > /dev/null && nohup sudo chmod -R 2775 ' . $private . ' > /dev/null');
-    drush_shell_exec('nohup chmod -R g+w ' . $files . '  > /dev/null && nohup sudo chmod -R g+w ' . $private . ' > /dev/null');
+  // Change permissions properly to files and private subdirectories.
+  drush_shell_exec('nohup chown -Rv ' . $user . ':' . $group . ' ' . $files . '  > /dev/null');
+  drush_shell_exec('nohup chown -Rv ' . $user . ':' . $group . ' ' . $private . ' > /dev/null');
+  drush_shell_exec('nohup chgrp -Rv ' . $group . ' ' . $files . '  > /dev/null');
+  drush_shell_exec('nohup chgrp -Rv ' . $group . ' ' . $private . ' > /dev/null');
+  drush_shell_exec('nohup chmod -R 2775 ' . $files . '  > /dev/null');
+  drush_shell_exec('nohup chmod -R 2775 ' . $private . ' > /dev/null');
+  drush_shell_exec('nohup chmod -R g+w ' . $files . '  > /dev/null');
+  drush_shell_exec('nohup chmod -R g+w ' . $private . ' > /dev/null');
+
+  // Update paths for private and files subdirectories.
+  $private = str_replace(DRUPAL_ROOT . DIRECTORY_SEPARATOR, '', $private);
+  if (drush_confirm(dt('Do you want to update "file_private_path" to "' . $private . '"'))) {
+    drush_variable_set('file_private_path', $private);
   }
+  $files = str_replace(DRUPAL_ROOT . DIRECTORY_SEPARATOR, '', $files);
+  if (drush_confirm(dt('Do you want to update "file_public_path" to "' . $files . '"'))) {
+    drush_variable_set('file_public_path', $files);
+  }
+  if (drush_confirm(dt('Do you want to update "file_temporary_path" to "/tmp"'))) {
+    drush_variable_set('file_temporary_path', '/tmp');
+  }
+
+  // variables to set:
+  // file_temporary_path: '/tmp'
+  // file_private_path: 'sites/default/files/private'
 }

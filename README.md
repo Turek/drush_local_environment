@@ -16,6 +16,8 @@ and sites/default/private for your Drupal installation and updating them
 in variables table, so you don't have to do that through the UI. It also takes
 care of creating .htaccess files in those subdirectories for security.
 
+To set permissions correctly, module detects your apache user and group automatically.
+
 ## When would you need this?
 
 You might be seeing one of below notices:

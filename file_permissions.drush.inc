@@ -27,7 +27,7 @@ function file_permissions_drush_command() {
     'callback' => 'drush_file_permissions',
     // Need FULL bootstrap level to be able to use variable_get().
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
-    'aliases' => array('lp'),
+    'aliases' => array('fp'),
   );
 
   return $items;

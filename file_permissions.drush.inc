@@ -124,10 +124,18 @@ function drush_file_permissions() {
   drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $private_dir . ' > /dev/null');
   drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $files_dir . '  > /dev/null');
   drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $private_dir . ' > /dev/null');
+  // The 2 means that the group id will be preserved for any new files created
+  // in this directory. What that means is that `www-data` will always be the
+  // group on any files, thereby ensuring that web server and the user will both
+  // always have write permissions to any new files that are placed in this
+  // directory.
   drush_shell_exec('nohup sudo chmod -R 2775 ' . $files_dir . '  > /dev/null');
   drush_shell_exec('nohup sudo chmod -R 2775 ' . $private_dir . ' > /dev/null');
   drush_shell_exec('nohup sudo chmod -R g+w ' . $files_dir . '  > /dev/null');
   drush_shell_exec('nohup sudo chmod -R g+w ' . $private_dir . ' > /dev/null');
+  // TODO: add settings.php permissions update as well.
+  // chmod 444 sites/default/settings.php
+  // As per: https://www.drupal.org/documentation/install/settings-file
 
   // Create .htaccess files in public, private and temp subdirectories.
   file_ensure_htaccess();

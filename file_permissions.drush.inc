@@ -62,11 +62,20 @@ function drush_file_permissions() {
   $default = 'sites' . DS . 'default';
   $private = 'sites' . DS . 'default' . DS . 'private';
   $files = 'sites' . DS . 'default' . DS . 'files';
-  // Get paths from variables. Not using drush_variable_get here as it throws
-  // an error when variable is empty.
-  $private_variable = variable_get('file_private_path', $private);
-  $files_variable = variable_get('file_public_path', $files);
-  $temp_variable = variable_get('file_temporary_path', '/tmp');
+  // Get paths from variables for Drupal 6 & 7.
+  // Not using drush_variable_get here as it throws an error when variable
+  // is empty.
+  if (drush_drupal_major_version() < 8) {
+    $private_variable = variable_get('file_private_path', $private);
+    $files_variable = variable_get('file_public_path', $files);
+    $temp_variable = variable_get('file_temporary_path', '/tmp');
+  }
+  else {
+    // TODO: Below methods should just work for any version, needs testing.
+    $private_variable = _drush_file_private_path();
+    $files_variable = _drush_file_public_path();
+    $temp_variable = drush_find_tmp();
+  }
 
   // Sometimes sites/default subdirectory is not set to 755, ensure it is.
   chmod($default, 0755);

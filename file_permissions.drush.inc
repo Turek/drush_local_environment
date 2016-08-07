@@ -58,64 +58,38 @@ function drush_file_permissions() {
     }
   }
 
-  // Define default paths.
+  // Define default paths and variables.
   $default = 'sites' . DS . 'default';
-  $private = 'sites' . DS . 'default' . DS . 'private';
-  $files = 'sites' . DS . 'default' . DS . 'files';
-  // Get paths from variables for Drupal 6 & 7.
-  // Not using drush_variable_get here as it throws an error when variable
-  // is empty.
-  if (drush_drupal_major_version() < 8) {
-    $private_variable = variable_get('file_private_path', $private);
-    $files_variable = variable_get('file_public_path', $files);
-    $temp_variable = variable_get('file_temporary_path', '/tmp');
+  $private = $default . DS . 'private';
+  $files = $default . DS . 'files';
+  $directories = array();
+
+  // Check for Private Files subdirectory.
+  $private_directory = _drush_file_private_path();
+  if (empty($private_directory)) {
+    $private_directory = $private;
   }
-  else {
-    // TODO: Below methods should just work for any version, needs testing.
-    $private_variable = _drush_file_private_path();
-    $files_variable = _drush_file_public_path();
-    $temp_variable = drush_find_tmp();
+  $directories[] = $private_directory;
+
+  // Check for Public Files subdirectory.
+  $public_directory = _drush_file_public_path();
+  if (empty($public_directory)) {
+    $public_directory = $files;
+  }
+  $directories[] = $public_directory;
+
+  // In Drupal 8 process the config subdirectory as well.
+  if (!empty($GLOBALS['config_directories'])) {
+    foreach ($GLOBALS['config_directories'] as $type => $directory) {
+      $directories[] = config_get_config_directory($type);
+    }
   }
 
   // Sometimes sites/default subdirectory is not set to 755, ensure it is.
   chmod($default, 0755);
 
-  // Create sites/default/files subdirectory if it doesn't exist.
-  $files_dir = DRUPAL_ROOT . DS . $files;
-  if (!file_exists($files_dir)) {
-    $mkdir = drush_mkdir($files_dir, TRUE);
-    if (!$mkdir) {
-      drush_log(dt('Attempted to create non existent @dir directory. Check `drush vget file_public_path`', array(
-        '@dir' => $private_dir,
-      )), 'warning');
-      exit;
-    }
-  }
-
-  // Detect sites/default/private subdirectory.
-  $private_dir = DRUPAL_ROOT . DS . $private;
-  if (!empty($private_variable)) {
-    // If directory is relative (not starting with /), lets create it in
-    // Drupal docroot.
-    if (drush_is_absolute_path($private_variable)) {
-      $private_dir = $private_variable;
-    }
-    else {
-      $private_dir = DRUPAL_ROOT . DS . $private_variable;
-    }
-  }
-  // Create sites/default/private subdirectory if it doesn't exist.
-  if (!file_exists($private_dir)) {
-    $mkdir = drush_mkdir($private_dir, TRUE);
-    if (!$mkdir) {
-      drush_log(dt('Attempted to create non existent @dir directory. Check `drush vget file_private_path`', array(
-        '@dir' => $private_dir,
-      )), 'warning');
-      exit;
-    }
-  }
-
-  // Get apache user.
+  // Get apache user from running processes.
+  // Currently supported: apache2 and nginx.
   $user = drush_shell_exec('ps axho user,group,comm|grep -E "httpd|apache|nginx"|uniq|grep -v "root"|awk \'END {if ($1 && $2) print $1}\'');
   $user = current(drush_shell_exec_output());
   drush_log(dt('Your httpd user: ' . $user), 'status');
@@ -128,24 +102,65 @@ function drush_file_permissions() {
   drush_log(dt('Your httpd group: ' . $group), 'status');
 
   drush_log(dt('You will be prompted for admin password to be able to change permissions with `sudo` command.'), 'warning');
-  // Change permissions properly to files and private subdirectories.
-  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $private_dir . ' > /dev/null');
-  drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $private_dir . ' > /dev/null');
+
+  // Change settings.php permissions to 444 as per:
+  // https://www.drupal.org/documentation/install/settings-file
+  drush_shell_exec('nohup chmod 444 ' . $default . DS . 'settings.php  > /dev/null');
+
+  // Process all gathered subdirectories.
+  if (!empty($directories)) {
+    foreach ($directories as $directory) {
+      _file_permissions_mkdir($directory);
+      _file_permissions_set($directory, $user, $group);
+    }
+  }
+
+  // Create .htaccess files in public, private and temp subdirectories.
+  file_ensure_htaccess();
+}
+
+/**
+ * Set subdirectory permissions.
+ */
+function _file_permissions_set($directory, $user, $group) {
+  // If directory is not relative use default Drupal docroot.
+  if (!drush_is_absolute_path($directory)) {
+    $directory = DRUPAL_ROOT . DS . $directory;
+  }
+
+  // Set file permissions.
+  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $directory . '  > /dev/null');
+  drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $directory . '  > /dev/null');
   // The 2 means that the group id will be preserved for any new files created
   // in this directory. What that means is that `www-data` will always be the
   // group on any files, thereby ensuring that web server and the user will both
   // always have write permissions to any new files that are placed in this
   // directory.
-  drush_shell_exec('nohup sudo chmod -R 2775 ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R 2775 ' . $private_dir . ' > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R g+w ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R g+w ' . $private_dir . ' > /dev/null');
-  // TODO: add settings.php permissions update as well.
-  // chmod 444 sites/default/settings.php
-  // As per: https://www.drupal.org/documentation/install/settings-file
+  drush_shell_exec('nohup sudo chmod -R 2775 ' . $directory . '  > /dev/null');
+}
 
-  // Create .htaccess files in public, private and temp subdirectories.
-  file_ensure_htaccess();
+/**
+ * Create subdirectory if it doesn't exist.
+ */
+function _file_permissions_mkdir($directory) {
+  // If directory is relative (not starting with /), lets create it in
+  // Drupal docroot.
+  if (!drush_is_absolute_path($directory)) {
+    $directory = DRUPAL_ROOT . DS . $directory;
+  }
+
+  if (!file_exists($directory)) {
+    $mkdir = drush_mkdir($directory, TRUE);
+    if (!$mkdir) {
+      drush_log(dt('Attempted to create non existent @dir directory. Permission denied.', array(
+        '@dir' => $directory,
+      )), 'warning');
+      exit;
+    }
+    else {
+      drush_log(dt('Created non existent @dir directory.', array(
+        '@dir' => $directory,
+      )), 'status');
+    }
+  }
 }

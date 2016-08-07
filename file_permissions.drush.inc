@@ -107,7 +107,7 @@ function drush_file_permissions() {
   }
 
   // Get apache user.
-  $user = drush_shell_exec('ps axho user,group,comm|grep -E "httpd|apache"|uniq|grep -v "root"|awk \'END {if ($1 && $2) print $1}\'');
+  $user = drush_shell_exec('ps axho user,group,comm|grep -E "httpd|apache|nginx"|uniq|grep -v "root"|awk \'END {if ($1 && $2) print $1}\'');
   $user = current(drush_shell_exec_output());
   drush_log(dt('Your httpd user: ' . $user), 'status');
 

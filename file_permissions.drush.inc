@@ -133,9 +133,9 @@ function drush_file_permissions() {
   drush_shell_exec('nohup sudo chmod -R 2775 ' . $private_dir . ' > /dev/null');
   drush_shell_exec('nohup sudo chmod -R g+w ' . $files_dir . '  > /dev/null');
   drush_shell_exec('nohup sudo chmod -R g+w ' . $private_dir . ' > /dev/null');
-  // TODO: add settings.php permissions update as well.
-  // chmod 444 sites/default/settings.php
-  // As per: https://www.drupal.org/documentation/install/settings-file
+  // Change settings.php permissions to 444 as per:
+  // https://www.drupal.org/documentation/install/settings-file
+  drush_shell_exec('nohup chmod 444 ' . $default . DS . 'settings.php  > /dev/null');
 
   // Create .htaccess files in public, private and temp subdirectories.
   file_ensure_htaccess();

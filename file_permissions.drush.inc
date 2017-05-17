@@ -68,9 +68,6 @@ function drush_file_permissions() {
   $files_variable = variable_get('file_public_path', $files);
   $temp_variable = variable_get('file_temporary_path', '/tmp');
 
-  // Sometimes sites/default subdirectory is not set to 755, ensure it is.
-  chmod($default, 0755);
-
   // Create sites/default/files subdirectory if it doesn't exist.
   $files_dir = DRUPAL_ROOT . DS . $files;
   if (!file_exists($files_dir)) {

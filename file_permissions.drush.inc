@@ -129,14 +129,15 @@ function _file_permissions_set($directory, $user, $group) {
   }
 
   // Set file permissions.
-  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $directory . '  > /dev/null');
+  drush_shell_exec('nohup sudo chown -Rhv ' . $user . ':' . $group . ' ' . $directory . '  > /dev/null');
   drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $directory . '  > /dev/null');
   // The 2 means that the group id will be preserved for any new files created
   // in this directory. What that means is that `www-data` will always be the
   // group on any files, thereby ensuring that web server and the user will both
   // always have write permissions to any new files that are placed in this
   // directory.
-  drush_shell_exec('nohup sudo chmod -R 2775 ' . $directory . '  > /dev/null');
+  drush_shell_exec("nohup sudo sh -c 'find $directory -type d -print0 | xargs -0 chmod -R 2775' > /dev/null");
+  drush_shell_exec("nohup sudo sh -c 'find $directory -type f -print0 | xargs -0 chmod -R 0664' > /dev/null");
 }
 
 /**

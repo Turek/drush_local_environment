@@ -120,8 +120,8 @@ function drush_file_permissions() {
 
   drush_log(dt('You will be prompted for admin password to be able to change permissions with `sudo` command.'), 'warning');
   // Change permissions properly to files and private subdirectories.
-  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chown -Rv ' . $user . ':' . $group . ' ' . $private_dir . ' > /dev/null');
+  drush_shell_exec('nohup sudo chown -Rhv ' . $user . ':' . $group . ' ' . $files_dir . '  > /dev/null');
+  drush_shell_exec('nohup sudo chown -Rhv ' . $user . ':' . $group . ' ' . $private_dir . ' > /dev/null');
   drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $files_dir . '  > /dev/null');
   drush_shell_exec('nohup sudo chgrp -Rv ' . $group . ' ' . $private_dir . ' > /dev/null');
   // The 2 means that the group id will be preserved for any new files created
@@ -129,10 +129,11 @@ function drush_file_permissions() {
   // group on any files, thereby ensuring that web server and the user will both
   // always have write permissions to any new files that are placed in this
   // directory.
-  drush_shell_exec('nohup sudo chmod -R 2775 ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R 2775 ' . $private_dir . ' > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R g+w ' . $files_dir . '  > /dev/null');
-  drush_shell_exec('nohup sudo chmod -R g+w ' . $private_dir . ' > /dev/null');
+  drush_shell_exec("nohup sudo sh -c 'find $files_dir   -type d -print0 | xargs -0 chmod -R 2775' 2> /dev/null");
+  drush_shell_exec("nohup sudo sh -c 'find $files_dir   -type f -print0 | xargs -0 chmod -R 0664' 2> /dev/null");
+  drush_shell_exec("nohup sudo sh -c 'find $private_dir -type d -print0 | xargs -0 chmod -R 2775' 2> /dev/null");
+  drush_shell_exec("nohup sudo sh -c 'find $private_dir -type f -print0 | xargs -0 chmod -R 0664' 2> /dev/null");
+
   // Change settings.php permissions to 444 as per:
   // https://www.drupal.org/documentation/install/settings-file
   drush_shell_exec('nohup chmod 444 ' . $default . DS . 'settings.php  > /dev/null');
